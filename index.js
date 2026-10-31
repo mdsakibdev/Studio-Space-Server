@@ -63,6 +63,18 @@ app.post("/bookings", async (req, res) => {
 });
 
 
+// Get My Bookings API
+app.get("/bookings", async (req, res) => {
+  const email = req.query.email;
+
+  const result = await bookingCollection
+    .find({ "user.email": email })
+    .sort({ createdAt: -1 })
+    .toArray();
+
+  res.send(result);
+});
+
 
 // Get All Studios API
 app.get("/studios", async (req, res) => {
@@ -101,6 +113,57 @@ app.get('/studios/:id', async (req, res) => {
             message: "Something went wrong"
         });
     }
+});
+
+// Cancel Booking API
+app.patch("/bookings/:id/cancel", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    // Check valid booking ID
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    
+    // Cancel only Pending or Confirmed bookings
+    const result = await bookingCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+        "user.email": email,
+        status: { $in: ["Pending", "Confirmed"] },
+      },
+      {
+        $set: {
+          status: "Cancelled",
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Booking not found or cannot be cancelled",
+      });
+    }
+
+    res.send({
+      success: true,
+      message: "Booking cancelled successfully",
+    });
+  } catch (error) {
+    console.error("Cancel Booking Error:", error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to cancel booking",
+    });
+  }
 });
 
 
