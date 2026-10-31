@@ -1,10 +1,7 @@
 import "dotenv/config";
-
 import express from "express";
+import { MongoClient } from 'mongodb';
 import cors from "cors";
-
-import { toNodeHandler } from "better-auth/node";
-import { auth } from "./lib/auth.ts";
 
 // Create Express application
 const app = express();
@@ -12,18 +9,43 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Enable CORS for frontend
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
-  }),
-);
-
-// Better Auth API routes
-// Express 5 catch-all route
-app.all("/api/auth/{*any}", toNodeHandler(auth));
-
+app.use(cors());
 app.use(express.json());
+
+
+const client = new MongoClient(process.env.MONGODB_URI);
+export async function connectToMongoDB() {
+  try {
+    await client.connect();
+    console.log("You successfully connected to MongoDB!");
+    return client;
+  } catch (err) {
+    console.dir(err);
+  }
+}
+
+const mongoClient = await connectToMongoDB();
+const db = mongoClient.db('studoUser');
+const studioCollection = db.collection('studios');
+
+// Add Studio API
+app.post("/studios", async (req, res) => {
+    const data = req.body;
+    const result = await studioCollection.insertOne(data);
+    console.log(result);
+    res.send(result);
+});
+
+
+
+// Get All Studios API
+app.get("/studios", async (req, res) => {
+    const result = await studioCollection.find().toArray();
+
+    res.send(result);
+});
+
+
 
 // Test API
 app.get("/", (req, res) => {
