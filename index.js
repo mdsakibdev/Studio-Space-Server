@@ -45,6 +45,16 @@ app.get("/studios", async (req, res) => {
     res.send(result);
 });
 
+// Get Featured Studios API
+app.get("/studios/featured", async (req, res) => {
+    const result = await studioCollection
+        .find({ status: "active" })
+        .sort({ rating: -1 })
+        .limit(6)
+        .toArray();
+
+    res.send(result);
+});
 
 
 // Test API
