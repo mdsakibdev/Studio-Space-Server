@@ -210,7 +210,15 @@ app.patch("/studios/:id", async (req, res) => {
     res.send(result);
 })
 
+// Delete Api
+app.delete("/studios/:id", async (req, res) => {
+    const { id } = req.params;
 
+    const result = await studioCollection.deleteOne({
+        _id: new ObjectId(id)
+    });
+    res.send(result);
+});
 
 
 
