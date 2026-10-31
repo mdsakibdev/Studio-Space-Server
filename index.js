@@ -129,7 +129,7 @@ app.patch("/bookings/:id/cancel", async (req, res) => {
       });
     }
 
-    
+
     // Cancel only Pending or Confirmed bookings
     const result = await bookingCollection.updateOne(
       {
@@ -162,6 +162,35 @@ app.patch("/bookings/:id/cancel", async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to cancel booking",
+    });
+  }
+});
+
+
+// Get My Studio Listings API
+app.get("/my-studios", async (req, res) => {
+  try {
+    const email = req.query.email;
+
+    if (!email) {
+      return res.status(400).send({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const result = await studioCollection
+      .find({ "host.email": email })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(result);
+  } catch (error) {
+    console.error("My Studios Error:", error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to load your studios",
     });
   }
 });
