@@ -196,6 +196,23 @@ app.get("/my-studios", async (req, res) => {
 });
 
 
+// Update Api
+app.patch("/studios/:id", async (req, res) => {
+    const {id} = req.params;
+    const { email, ...data } = req.body;
+    const result = await studioCollection.updateOne(
+      {
+  _id: new ObjectId(id),
+  "host.email": email,
+},
+      { $set: data }
+    );
+    res.send(result);
+})
+
+
+
+
 
 // Test API
 app.get("/", (req, res) => {
