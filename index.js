@@ -7,7 +7,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 // Create Express application
 const app = express();
 
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 // Enable CORS for frontend
 app.use(cors());
@@ -109,7 +109,7 @@ app.get("/studios/featured", async (req, res) => {
 
 
 // Get Single Studio Details API
-app.get('/studios/:id', varyfiApi, async (req, res) => {
+app.get('/studios/:id',  async (req, res) => {
     try {
         const { id } = req.params;
         const result = await studioCollection.findOne({ _id: new ObjectId(id)});
@@ -225,3 +225,5 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+
+export default app
