@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { MongoClient, ObjectId } from "mongodb";
 import cors from "cors";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // Create Express application
 const app = express();
@@ -11,6 +12,27 @@ const PORT = process.env.PORT || 5000;
 // Enable CORS for frontend
 app.use(cors());
 app.use(express.json());
+
+const varyfiApi = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ msg: 'Unauthorized!' });
+    }
+    const token = authHeader.split(' ')[1];
+    if(!token){
+        return res.status(401).send({ msg: 'Unauthorized!' });
+    }
+
+    const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`));
+    
+    try {
+      const {payload} = await jwtVerify(token, JWKS )
+      next()
+    } catch (error) {
+      return res.status(401).send({ msg: 'Unauthorized!' });
+      
+    }
+}
 
 
 const client = new MongoClient(process.env.MONGODB_URI);
@@ -30,7 +52,7 @@ const studioCollection = db.collection('studios');
 const bookingCollection = db.collection('bookings');
 
 // Add Studio API
-app.post("/studios", async (req, res) => {
+app.post("/studios", varyfiApi, async (req, res) => {
     const data = req.body;
     const result = await studioCollection.insertOne(data);
     console.log(result);
@@ -38,40 +60,31 @@ app.post("/studios", async (req, res) => {
 });
 
 // Create Booking API
-app.post("/bookings", async (req, res) => {
+app.post("/bookings", varyfiApi, async (req, res) => {
     const data = req.body;
-
-    const studio = await studioCollection.findOne({
-        _id: new ObjectId(data.studioId),
-    });
-
+    const studio = await studioCollection.findOne({_id: new ObjectId(data.studioId),});
     if (!studio) {
         return res.status(404).send({ message: "Studio not found" });
     }
-
     const bookingData = {
         ...data,
         studioTitle: studio.title,
         status: "Pending",
         createdAt: new Date(),
     };
-
     const result = await bookingCollection.insertOne(bookingData);
-
     console.log(result);
     res.send(result);
 });
 
 
 // Get My Bookings API
-app.get("/bookings", async (req, res) => {
+app.get("/bookings", varyfiApi, async (req, res) => {
   const email = req.query.email;
-
   const result = await bookingCollection
     .find({ "user.email": email })
     .sort({ createdAt: -1 })
     .toArray();
-
   res.send(result);
 });
 
@@ -79,9 +92,9 @@ app.get("/bookings", async (req, res) => {
 // Get All Studios API
 app.get("/studios", async (req, res) => {
     const result = await studioCollection.find().toArray();
-
     res.send(result);
 });
+
 
 // Get Featured Studios API
 app.get("/studios/featured", async (req, res) => {
@@ -90,23 +103,17 @@ app.get("/studios/featured", async (req, res) => {
         .sort({ rating: -1 })
         .limit(6)
         .toArray();
-
     res.send(result);
 });
 
 
 
 // Get Single Studio Details API
-app.get('/studios/:id', async (req, res) => {
+app.get('/studios/:id', varyfiApi, async (req, res) => {
     try {
         const { id } = req.params;
-
-        const result = await studioCollection.findOne({
-            _id: new ObjectId(id)
-        });
-
+        const result = await studioCollection.findOne({ _id: new ObjectId(id)});
         res.send(result);
-
     } catch (error) {
         res.status(500).send({
             success: false,
@@ -116,11 +123,10 @@ app.get('/studios/:id', async (req, res) => {
 });
 
 // Cancel Booking API
-app.patch("/bookings/:id/cancel", async (req, res) => {
+app.patch("/bookings/:id/cancel", varyfiApi, async (req, res) => {
   try {
     const { id } = req.params;
     const { email } = req.body;
-
     // Check valid booking ID
     if (!ObjectId.isValid(id)) {
       return res.status(400).send({
@@ -128,8 +134,6 @@ app.patch("/bookings/:id/cancel", async (req, res) => {
         message: "Invalid booking ID",
       });
     }
-
-
     // Cancel only Pending or Confirmed bookings
     const result = await bookingCollection.updateOne(
       {
@@ -144,21 +148,18 @@ app.patch("/bookings/:id/cancel", async (req, res) => {
         },
       }
     );
-
     if (result.matchedCount === 0) {
       return res.status(404).send({
         success: false,
         message: "Booking not found or cannot be cancelled",
       });
     }
-
     res.send({
       success: true,
       message: "Booking cancelled successfully",
     });
   } catch (error) {
     console.error("Cancel Booking Error:", error);
-
     res.status(500).send({
       success: false,
       message: "Failed to cancel booking",
@@ -168,17 +169,15 @@ app.patch("/bookings/:id/cancel", async (req, res) => {
 
 
 // Get My Studio Listings API
-app.get("/my-studios", async (req, res) => {
+app.get("/my-studios", varyfiApi, async (req, res) => {
   try {
     const email = req.query.email;
-
     if (!email) {
       return res.status(400).send({
         success: false,
         message: "Email is required",
       });
     }
-
     const result = await studioCollection
       .find({ "host.email": email })
       .sort({ createdAt: -1 })
@@ -187,7 +186,6 @@ app.get("/my-studios", async (req, res) => {
     res.send(result);
   } catch (error) {
     console.error("My Studios Error:", error);
-
     res.status(500).send({
       success: false,
       message: "Failed to load your studios",
@@ -197,26 +195,18 @@ app.get("/my-studios", async (req, res) => {
 
 
 // Update Api
-app.patch("/studios/:id", async (req, res) => {
+app.patch("/studios/:id", varyfiApi, async (req, res) => {
     const {id} = req.params;
     const { email, ...data } = req.body;
     const result = await studioCollection.updateOne(
-      {
-  _id: new ObjectId(id),
-  "host.email": email,
-},
-      { $set: data }
-    );
+      { _id: new ObjectId(id),"host.email": email,},{ $set: data });
     res.send(result);
 })
 
 // Delete Api
-app.delete("/studios/:id", async (req, res) => {
+app.delete("/studios/:id", varyfiApi, async (req, res) => {
     const { id } = req.params;
-
-    const result = await studioCollection.deleteOne({
-        _id: new ObjectId(id)
-    });
+    const result = await studioCollection.deleteOne({_id: new ObjectId(id)});
     res.send(result);
 });
 
@@ -229,6 +219,7 @@ app.get("/", (req, res) => {
     message: "StudioSpace Backend is running!",
   });
 });
+
 
 // Start server
 app.listen(PORT, () => {
